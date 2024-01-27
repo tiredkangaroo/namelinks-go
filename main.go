@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 )
 
 type Bond struct {
@@ -33,9 +34,9 @@ func getLongByShort(bonds []Bond, short string) (string, error) {
 }
 func direct(w http.ResponseWriter, req *http.Request) {
 	bonds := []Bond{
-		{"pihole", fmt.Sprintf("http://%s/admin", ServerLocalIP)},
+		{"pihole", fmt.Sprintf("http://%s:8080/admin", ServerLocalIP)},
 	}
-	short := req.URL.Path[1:]
+	short := strings.Split(req.URL.Path, "/")[1]
 	long, err := getLongByShort(bonds, short)
 	if err != nil {
 		fmt.Fprintf(w, "There is no go route for %s.", short)
@@ -51,5 +52,5 @@ func main() {
 	}
 	fmt.Println(ServerLocalIP)
 	http.HandleFunc("/", direct)
-	http.ListenAndServe(":8080", nil)
+	fmt.Println(http.ListenAndServe(":80", nil))
 }
