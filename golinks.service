@@ -1,0 +1,11 @@
+[Unit]
+Description="Directs go/ requests."
+After=network.target
+
+[Service]
+ExecStart=go run /home/{username}/golinks/main.go
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
