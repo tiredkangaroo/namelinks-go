@@ -1,0 +1,2 @@
+pihole,http://SERVERIP:8080/admin
+movies,http://SERVERIP:8096
