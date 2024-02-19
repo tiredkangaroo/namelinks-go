@@ -45,6 +45,16 @@ func direct(w http.ResponseWriter, req *http.Request) {
 	http.Redirect(w, req, long, http.StatusPermanentRedirect)
 }
 
+func list(w http.ResponseWriter, _ *http.Request) {
+	var bds string = "<ul>"
+	for _, bond := range bonds {
+		bds += fmt.Sprintf("<li>%s  -->  <a href='%s'>%s</a></li>", bond.short, bond.long, bond.long)
+		bds += "<br><br>"
+	}
+	bds += "</ul>"
+	w.Header().Add("Content-Type", "text/html")
+	fmt.Fprintf(w, bds)
+}
 func main() {
 	if ServerLocalIP == nil {
 		fmt.Println("Unable to access local ip.")
@@ -68,6 +78,7 @@ func main() {
 		lng = strings.Replace(lng, "SERVERIP", ServerLocalIP.String(), 1)
 		bonds = append(bonds, Bond{row[0], lng})
 	}
+	http.HandleFunc("/list", list)
 	http.HandleFunc("/", direct)
 	fmt.Println(http.ListenAndServe(":80", nil))
 }
