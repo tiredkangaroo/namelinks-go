@@ -36,15 +36,13 @@ func getLongByShort(short string) (string, error) {
 	return "", fmt.Errorf("Bond with short %s not found", short)
 }
 func direct(w http.ResponseWriter, req *http.Request) {
-	sp := strings.Split(req.URL.Path, "/")
-	short := sp[1]
-	rest := "/" + strings.Join(sp[2:], "/")
+	fmt.Println(req.URL.Path)
+	short := strings.Split(req.URL.Path, "/")[1]
 	long, err := getLongByShort(short)
 	if err != nil {
 		fmt.Fprintf(w, "There is no go route for %s.", short)
 		return
 	}
-	long += rest
 	http.Redirect(w, req, long, http.StatusPermanentRedirect)
 }
 
