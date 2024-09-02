@@ -1,14 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/valyala/fasthttp"
 )
-
-type bonds *map[string]string
 
 func notFound(c *fasthttp.RequestCtx) {
 	c.Response.Header.Set("Content-Type", "text/html")
@@ -18,20 +17,16 @@ func notFound(c *fasthttp.RequestCtx) {
   `)
 }
 
-func listPaths(c *fasthttp.RequestCtx, b bonds) {
-	cmd := exec.Command("git", "rev-parse", "HEAD")
-	output, err := cmd.CombinedOutput()
-	version := ""
-	if err == nil {
-		version = string(output)
-	} else {
-		version = fmt.Sprintf("There was an issue reading the version: %s.", err.Error())
-	}
-
+func listPaths(c *fasthttp.RequestCtx, client *redis.Client) {
 	listElements := ""
-	for short, long := range *b {
+
+	res := client.HGetAll(context.Background(), "urlshortner")
+	b := res.Val()
+
+	for short, long := range b {
 		listElements += fmt.Sprintf(`<li>%s: <a href="%s">%s</a></li><br>`, short, long, long)
 	}
+
 	c.Response.Header.Set("Content-Type", "text/html")
 	fmt.Fprintf(c, `
 	<p>Version: %s</p>
@@ -41,33 +36,44 @@ func listPaths(c *fasthttp.RequestCtx, b bonds) {
   `, version, listElements)
 }
 
-func handleRedirection(c *fasthttp.RequestCtx, b bonds, path string) {
+func handleRedirection(c *fasthttp.RequestCtx, client *redis.Client, path string) {
 	s := strings.Split(path, "/")
 	shortReq := strings.ToLower(s[1])
-	longFromReq := "/not-found"
-	for short, long := range *b {
-		if short == shortReq {
-			longFromReq = long
-			break
-		}
+	long := ""
+
+	res := client.HGet(c, "urlshortner", shortReq)
+	if res == nil {
+		c.Redirect("/not-found", 301)
+		return
 	}
-	if len(s) > 2 && longFromReq != "/not-found" {
-		longFromReq += "/" + strings.Join(s[2:], "/")
+	if res.Err() != nil {
+		c.Redirect("/not-found", 301)
+		return
 	}
-	c.Redirect(longFromReq, 301)
+	long = res.Val()
+	if long == "" {
+		c.Redirect("/not-found", 301)
+		return
+	}
+
+	if len(s) > 2 {
+		long += "/" + strings.Join(s[2:], "/")
+	}
+	c.Redirect(long, 301)
 }
 
 // startServer starts the FastHTTP server at port 80.
-func startServer(b *map[string]string) {
+func startServer(client *redis.Client) {
 	handler := func(c *fasthttp.RequestCtx) {
+		c.Response.Header.Set("Cache-Control", "no-store")
 		path := string(c.Path())
 		switch path {
 		case "/not-found":
 			notFound(c)
 		case "/list":
-			listPaths(c, b)
+			listPaths(c, client)
 		default:
-			handleRedirection(c, b, path)
+			handleRedirection(c, client, path)
 		}
 	}
 	fasthttp.ListenAndServe(":80", handler)

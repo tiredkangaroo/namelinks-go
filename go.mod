@@ -3,7 +3,6 @@ module golinks
 go 1.21.6
 
 require (
-	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/valyala/fasthttp v1.55.0
 )
