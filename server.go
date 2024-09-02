@@ -55,6 +55,7 @@ func handleRedirection(c *fasthttp.RequestCtx, client *redis.Client, path string
 		c.Redirect("/not-found", 301)
 		return
 	}
+	long = strings.ReplaceAll(long, "$SERVERIP", getLocalIP().String())
 
 	if len(s) > 2 {
 		long += "/" + strings.Join(s[2:], "/")
