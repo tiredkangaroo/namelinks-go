@@ -86,7 +86,7 @@ func getAILink(name []byte) ([]byte, error) {
 	var respBody Response
 	json.NewDecoder(resp.Body).Decode(&respBody)
 	if respBody.Error != "" {
-		return nil, fmt.Errorf("api error: %w", respBody.Error)
+		return nil, fmt.Errorf("api error: %s", respBody.Error)
 	}
 	if len(respBody.Choices) == 0 {
 		return nil, fmt.Errorf("no choices in response")
