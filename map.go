@@ -40,7 +40,7 @@ func getlink(name []byte) []byte {
 func putlink(name, link []byte) {
 	h := hash16crc(name)
 	if namelinks[h] != nil {
-		panic("hash collision for " + string(name))
+		panic("hash collision for " + string(name) + " current: " + string(namelinks[h]) + " new: " + string(link))
 	}
 	namelinks[h] = link
 }
