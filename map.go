@@ -27,11 +27,21 @@ func hash16crc(b []byte) uint16 { // collision generator
 
 func getlink(name []byte) []byte {
 	h := hash16crc(name)
-	return namelinks[h]
+	if link := namelinks[h]; link != nil {
+		return link
+	}
+	if link, err := getAILink(name); err == nil {
+		putlink(name, link)
+		return link
+	}
+	return nil
 }
 
 func putlink(name, link []byte) {
 	h := hash16crc(name)
+	if namelinks[h] != nil {
+		panic("hash collision for " + string(name))
+	}
 	namelinks[h] = link
 }
 
