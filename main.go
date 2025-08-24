@@ -1,33 +1,77 @@
 package main
 
 import (
-	_ "embed"
 	"fmt"
+	"log/slog"
 	"net"
-
-	"github.com/redis/go-redis/v9"
+	"runtime"
+	"sync"
 )
 
-//go:embed version.txt
-var version string
-
-func getLocalIP() net.IP {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
+func serve() error {
+	listener, err := net.Listen("tcp", ":80")
 	if err != nil {
-		return nil
+		return err
 	}
+	defer listener.Close()
+
+	slog.Info("starting workers", "count", runtime.NumCPU())
+	for range runtime.NumCPU() {
+		go worker(listener)
+	}
+
+	select {}
+}
+
+func worker(listener net.Listener) {
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			continue
+		}
+		handleConnection(conn)
+	}
+}
+
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 0, 512)
+	},
+}
+
+func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	return localAddr.IP
+	buf := bufferPool.Get().([]byte)
+	defer bufferPool.Put(buf)
+
+	n, err := conn.Read(buf[:512])
+	if err != nil {
+		return
+	}
+	activebuf := buf[:n]
+
+	spaceCount := 0
+	var start, end int
+	for i, b := range activebuf {
+		if b != ' ' {
+			continue
+		}
+		spaceCount++
+		if spaceCount == 1 {
+			start = i
+		} else if spaceCount == 2 {
+			end = i
+			break
+		}
+	}
+	if start == 0 || end == 0 || start+1 > len(activebuf) {
+		return
+	}
+	path := activebuf[start+1 : end]
+	fmt.Println(string(path))
+	return
 }
 
 func main() {
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	go startServer(client)
-	fmt.Println(`Visit: http://[::1]:80`)
-	select {}
+	serve()
 }
