@@ -81,7 +81,13 @@ func handleConnection(conn net.Conn, buf *[1024]byte, respBuf *[1024]byte) {
 			return
 		}
 		path := activebuf[start+1 : end]
-		link := getlink(path[1:])
+		if path[0] == '/' {
+			path = path[1:]
+		}
+		if path[len(path)-1] == '/' {
+			path = path[:len(path)-1]
+		}
+		link := getlink(path)
 
 		if link == nil {
 			_, err = conn.Write(NOT_FOUND)
