@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"net"
 	"runtime"
-	"sync"
 )
 
 // server documentation:
@@ -13,7 +12,9 @@ import (
 // this is a fragile handler, it assumes the request is well-formed and valid and does not handle errors gracefully.
 
 var NOT_FOUND = []byte("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n")
-var FOUND = []byte("HTTP/1.1 302 Found\r\nContent-Length: 0\r\nLocation: ")
+
+var FOUND_PREFIX = []byte("HTTP/1.1 302 Found\r\nContent-Length: 0\r\nLocation: ")
+var crlfcrlf = []byte("\r\n\r\n")
 
 func serve() error {
 	listener, err := net.Listen("tcp", ":80")
@@ -31,30 +32,24 @@ func serve() error {
 }
 
 func worker(listener net.Listener) {
+	runtime.LockOSThread()
+	buf := new([1024]byte) // pre-allocate buffer
+	respBuf := new([1024]byte)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			continue
 		}
-		handleConnection(conn)
+		handleConnection(conn, buf, respBuf)
 	}
 }
 
-var bufferPool = sync.Pool{
-	New: func() any {
-		buf := new([1024]byte)
-		return buf
-	},
-}
-
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, buf *[1024]byte, respBuf *[1024]byte) {
 	defer conn.Close()
 
 	for {
-		buf := bufferPool.Get().(*[1024]byte)
 		n, err := conn.Read(buf[:]) // if client disconnects here it should eof/use of closed pipe so we're lowk chillin
 		if err != nil {
-			bufferPool.Put(buf)
 			return
 		}
 		// t := time.Now()
@@ -83,31 +78,23 @@ func handleConnection(conn net.Conn) {
 			}
 		}
 		if start == 0 || end == 0 || start+1 > len(activebuf) {
-			bufferPool.Put(buf)
 			return
 		}
 		path := activebuf[start+1 : end]
 		link := getlink(path[1:])
-		bufferPool.Put(buf)
-
-		// response
-		resp := bufferPool.Get().(*[1024]byte)
-		r := resp[:0]
 
 		if link == nil {
-			r = append(r, NOT_FOUND...)
+			_, err = conn.Write(NOT_FOUND)
 		} else {
-			r = append(r, FOUND...)
-			r = append(r, link...)
-			r = append(r, '\r', '\n', '\r', '\n')
+			pos := copy(respBuf[:], FOUND_PREFIX)
+			pos += copy(respBuf[pos:], link)
+			pos += copy(respBuf[pos:], crlfcrlf)
+			_, err = conn.Write(respBuf[:pos])
 		}
-
-		_, err = conn.Write(r)
-		bufferPool.Put(resp)
-
 		if err != nil {
 			return
 		}
+
 		// s := time.Since(t)
 		// slog.Info("served", "link", string(link), "duration_microseconds", s.Microseconds())
 		// loop continues for next request (keep-alive, just assume cause why not :| )
