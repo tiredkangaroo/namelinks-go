@@ -7,6 +7,11 @@ import (
 	"sync"
 )
 
+// server documentation:
+// - GET /<name> -> will either redirect to the corresponding link or return a 404 error
+// - PATCH / -> will update the link for the given name (drops connection, cannot Keep-Alive here)
+// this is a fragile handler, it assumes the request is well-formed and valid and does not handle errors gracefully.
+
 var NOT_FOUND = []byte("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n")
 var FOUND = []byte("HTTP/1.1 302 Found\r\nContent-Length: 0\r\nLocation: ")
 
@@ -36,7 +41,7 @@ func worker(listener net.Listener) {
 }
 
 var bufferPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		buf := new([1024]byte)
 		return buf
 	},
@@ -52,10 +57,14 @@ func handleConnection(conn net.Conn) {
 			bufferPool.Put(buf)
 			return
 		}
-		if n == 1024 {
+		if n == 1024 || n == 0 {
 			return // i don't want to deal w ts
 		}
 		activebuf := buf[:n]
+		if activebuf[0] != 'G' { // not a GET request, client is trying to indicate that they want to refresh
+			load()
+			return
+		}
 
 		// parse path
 		spaceCount := 0
