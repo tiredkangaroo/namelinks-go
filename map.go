@@ -4,10 +4,22 @@ import (
 	"bytes"
 	"hash/crc32"
 	"log/slog"
+	"net"
 	"os"
 )
 
 var namelinks = make([][]byte, 256*256) // 65536 slots of name links :)
+var serverIP []byte
+
+func init() {
+	conn, err := net.Dial("tcp", "1.1.1.1:80")
+	if err != nil {
+		slog.Error("could not determine server IP", "err", err.Error())
+		os.Exit(1)
+	}
+	defer conn.Close()
+	serverIP = []byte(conn.LocalAddr().(*net.TCPAddr).IP.String()) // don't add port to serverIP
+}
 
 func hash16crc(b []byte) uint16 { // collision generator
 	return uint16(crc32.ChecksumIEEE(b))
@@ -36,6 +48,7 @@ func load() {
 		}
 		name := parts[0]
 		link := parts[1]
+		link = bytes.ReplaceAll(link, []byte("$SERVER_IP"), serverIP)
 		putlink(name, link)
 		slog.Info("loaded", "name", string(name), "link", string(link))
 	}

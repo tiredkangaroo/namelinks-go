@@ -57,6 +57,7 @@ func handleConnection(conn net.Conn) {
 			bufferPool.Put(buf)
 			return
 		}
+		// t := time.Now()
 		if n == 1024 || n == 0 {
 			return // i don't want to deal w ts
 		}
@@ -107,6 +108,8 @@ func handleConnection(conn net.Conn) {
 		if err != nil {
 			return
 		}
+		// s := time.Since(t)
+		// slog.Info("served", "link", string(link), "duration_microseconds", s.Microseconds())
 		// loop continues for next request (keep-alive, just assume cause why not :| )
 	}
 }
