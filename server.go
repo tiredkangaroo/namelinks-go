@@ -57,10 +57,10 @@ func handleConnection(conn net.Conn, buf *[1024]byte, respBuf *[1024]byte) {
 			return // i don't want to deal w ts
 		}
 		activebuf := buf[:n]
-		if activebuf[0] != 'G' { // not a GET request, client is trying to indicate that they want to refresh
-			load()
-			return
-		}
+		// if activebuf[0] != 'G' { // not a GET request, client is trying to indicate that they want to refresh
+		// 	load()
+		// 	return
+		// }
 
 		// parse path
 		spaceCount := 0
