@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-var namelinks = make([][]byte, 256*256) // 65536 slots of name links :)
+var namelinks = make([][]byte, 1<<24) // 16777216 slots of name links :)
 var serverIP []byte
 
 func init() {
@@ -21,12 +21,12 @@ func init() {
 	serverIP = []byte(conn.LocalAddr().(*net.TCPAddr).IP.String()) // don't add port to serverIP
 }
 
-func hash16crc(b []byte) uint16 { // collision generator
-	return uint16(crc32.ChecksumIEEE(b))
+func hash24crc(b []byte) uint32 { // collision generator
+	return crc32.ChecksumIEEE(b) & 0xFFFFFF // 24 bits
 }
 
 func getlink(name []byte) []byte {
-	h := hash16crc(name)
+	h := hash24crc(name)
 	if link := namelinks[h]; link != nil {
 		return link
 	}
@@ -38,7 +38,7 @@ func getlink(name []byte) []byte {
 }
 
 func putlink(name, link []byte) {
-	h := hash16crc(name)
+	h := hash24crc(name)
 	if namelinks[h] != nil {
 		panic("hash collision for " + string(name) + " current: " + string(namelinks[h]) + " new: " + string(link))
 	}

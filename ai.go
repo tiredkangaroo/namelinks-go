@@ -93,6 +93,5 @@ func getAILink(name []byte) ([]byte, error) {
 	}
 	contentParts := strings.Split(respBody.Choices[0].Message.Content, "\n")
 	link := contentParts[len(contentParts)-1]
-	fmt.Println("AI response:", link)
 	return []byte(link), nil
 }
